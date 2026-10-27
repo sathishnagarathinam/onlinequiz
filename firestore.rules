@@ -1,0 +1,72 @@
+rules_version = '2';
+
+// =========================================================================
+// MCQ QUIZ PORTAL — NO-AUTH SECURITY RULES
+// -------------------------------------------------------------------------
+// WARNING: These rules are PERMISSIVE (no request.auth checks).
+// Intended for intranet / trusted environments only.
+// On the public internet, put a reverse proxy with IP whitelist or basic
+// auth in front of Firebase, or re-enable auth rules in a prior version.
+//
+// Business invariants still enforced even in permissive mode:
+//   1. attempts cannot be deleted (preserves audit trail)
+//   2. auditLogs cannot be updated or deleted (immutable event log)
+//   3. attemptLocks + duplicate guards still apply server-side
+// =========================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- users -------------------------------------------------------
+    match /users/{uid} {
+      allow read, write: if true;
+    }
+
+    // ---------- officeMaster (singleton "main") ----------------------------
+    match /officeMaster/{docId} {
+      allow read, write: if true;
+    }
+
+    // ---------- employeeMaster ---------------------------------------------
+    match /employeeMaster/{employeeId} {
+      allow read, write: if true;
+    }
+
+    // ---------- quizzes + questions subcollection -------------------------
+    match /quizzes/{quizId} {
+      allow read, write: if true;
+
+      match /questions/{qid} {
+        allow read, write: if true;
+      }
+    }
+
+    // ---------- attemptLocks (deterministic id = employeeId_quizId) --------
+    match /attemptLocks/{lockId} {
+      allow read, write: if true;
+    }
+
+    // ---------- attempts ---------------------------------------------------
+    match /attempts/{attemptId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    // ---------- results ----------------------------------------------------
+    match /results/{resultId} {
+      allow read, write: if true;
+    }
+
+    // ---------- auditLogs (immutable) --------------------------------------
+    match /auditLogs/{logId} {
+      allow read, create: if true;
+      allow update, delete: if false;
+    }
+
+    // ---------- settings (singleton "app") ---------------------------------
+    match /settings/{docId} {
+      allow read, write: if true;
+    }
+
+  }
+}

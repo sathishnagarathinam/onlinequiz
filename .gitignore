@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Vite build output
+dist/
+
+# Local Vercel/GitHub-Pages snapshot (GitHub Actions builds the site instead)
+githubpage/
+
+# Firebase CLI cache
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+
+# Misc
+.DS_Store
+*.log

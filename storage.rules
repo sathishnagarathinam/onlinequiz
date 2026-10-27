@@ -1,0 +1,23 @@
+rules_version = '2';
+
+// No-auth storage rules. Mirror the permissive firestore.rules setting —
+// intended for intranet / trusted environments only.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /temp/{userId}/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    match /uploads/admin/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    match /questions/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}

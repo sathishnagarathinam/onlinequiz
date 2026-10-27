@@ -1,0 +1,10 @@
+{
+  "name": "mcq-quiz-portal-root",
+  "private": true,
+  "scripts": {
+    "generate-templates": "node scripts/generate-templates.mjs"
+  },
+  "devDependencies": {
+    "xlsx": "^0.18.5"
+  }
+}
