@@ -15,30 +15,77 @@ export interface CertificateInput {
   issuedOn?: Date;
 }
 
-/** Issuing authority. Replaces the address block printed on the template. */
+/** Issuing authority printed on the certificate. */
 export const CERTIFICATE_ISSUER =
   "Postmaster General, Western Region, Coimbatore";
 /** Event the certificate is awarded for. */
 const EVENT = "Vigilance Awareness Week 2026";
 
-/** Template artwork (`certificate photo.jpeg`): 800 x 477 px. */
-const ART = { file: "images/certificate-template.jpg", w: 800, h: 477 };
 /**
- * The template's red footer band, in template pixels. It carries the original
- * Dharmapuri address, which is painted over with the issuing authority.
+ * The certificate is a landscape design whose artwork was measured against a
+ * 1536 x 1024 reference. `certificate-blank.jpg` is that artwork with the
+ * specimen values diffused away, so the real details can be printed on top of
+ * the frames, ribbons and India Post emblem it already carries.
  */
-const ART_BAND = { x0: 16, y0: 416, x1: 784, y1: 477 };
-const ART_RED: [number, number, number] = [190, 35, 39];
-/** Banner placement on the A4 portrait page, in millimetres. */
-const BANNER = { x: 15, y: 12, w: 180 };
-const MM_PER_PX = BANNER.w / ART.w;
+const ART = { file: "images/certificate-blank.jpg", w: 1536, h: 1024 };
+/** The page keeps the artwork's exact 3:2 ratio, so it fills edge to edge. */
+const PAGE = { w: 297, h: 198 };
+/** Millimetres per reference pixel. */
+const S = PAGE.w / ART.w;
+/** Horizontal centre of the certificate body, in reference pixels. */
+const BODY_CX = 770;
+/** Horizontal centre of the signature block, in reference pixels. */
+const SIGN_CX = 1266;
+/** Widest line the artwork's inner panel can hold, in millimetres. */
+const BODY_MAX_W = 245;
 
-function loadTemplate(src: string): Promise<HTMLImageElement> {
+/** India Post red used for the recipient's name and marks. */
+const RED: [number, number, number] = [193, 6, 10];
+/** Dark navy used for every other printed line. */
+const NAVY: [number, number, number] = [9, 35, 95];
+
+/** A line of text pinned to the artwork, in reference pixels. */
+interface Slot {
+  /** Horizontal centre, or left edge when `align` is "left". */
+  x: number;
+  /** Text baseline. */
+  baseline: number;
+  size: number;
+  style: "normal" | "bold";
+  color: [number, number, number];
+  align?: "center" | "left";
+  /** Shrink the type until the line fits this width, in millimetres. */
+  maxW?: number;
+}
+
+/** Text positions measured from the reference artwork. */
+const SLOTS = {
+  name: { x: BODY_CX, baseline: 563, size: 28, style: "bold", color: RED } as Slot,
+  empid: { x: BODY_CX, baseline: 598, size: 13.5, style: "bold", color: NAVY, maxW: BODY_MAX_W } as Slot,
+  para1: { x: BODY_CX, baseline: 630, size: 12.4, style: "normal", color: NAVY, maxW: BODY_MAX_W } as Slot,
+  para2: { x: BODY_CX, baseline: 660, size: 12.4, style: "normal", color: NAVY, maxW: BODY_MAX_W } as Slot,
+  marks: { x: BODY_CX, baseline: 717, size: 21, style: "bold", color: RED, maxW: 190 } as Slot,
+  quiz: { x: BODY_CX, baseline: 767, size: 13.5, style: "bold", color: NAVY, maxW: BODY_MAX_W } as Slot,
+  posting: { x: BODY_CX, baseline: 799, size: 12.2, style: "normal", color: NAVY, maxW: BODY_MAX_W } as Slot,
+  issuer: { x: SIGN_CX, baseline: 847.5, size: 10, style: "bold", color: NAVY, maxW: 130 } as Slot,
+  dept: { x: SIGN_CX, baseline: 872.5, size: 10, style: "bold", color: NAVY, maxW: 130 } as Slot,
+  date: {
+    x: 69,
+    baseline: 940,
+    size: 12,
+    style: "normal",
+    color: [255, 255, 255],
+    align: "left",
+    maxW: 70,
+  } as Slot,
+};
+
+function loadArtwork(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = () =>
-      reject(new Error("Could not load the certificate template image."));
+      reject(new Error("Could not load the certificate artwork."));
     img.src = src;
   });
 }
@@ -51,115 +98,80 @@ function formatIssuedOn(date: Date): string {
   });
 }
 
+/** Prints one measured line, shrinking it if the artwork's panel is too narrow. */
+function put(doc: jsPDF, slot: Slot, text: string): void {
+  doc.setFont("helvetica", slot.style);
+  let size = slot.size;
+  doc.setFontSize(size);
+  while (slot.maxW && size > 6 && doc.getTextWidth(text) > slot.maxW) {
+    size -= 0.25;
+    doc.setFontSize(size);
+  }
+  doc.setTextColor(slot.color[0], slot.color[1], slot.color[2]);
+  doc.text(text, slot.x * S, slot.baseline * S, {
+    align: slot.align ?? "center",
+  });
+}
+
 /**
- * Builds an A4 certificate: the supplied artwork as the top banner, with the
- * employee's details printed below it, and downloads it as a PDF.
+ * Builds the Vigilance Awareness Week certificate on the artwork's own layout
+ * and downloads it as a PDF.
  */
 export async function exportCertificatePdf(
   input: CertificateInput
 ): Promise<void> {
-  const template = await loadTemplate(
+  const artwork = await loadArtwork(
     `${import.meta.env.BASE_URL}${ART.file}`
   );
 
-  const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-
-  // Banner: the artwork's own design (event title, dates, slogan, motif).
-  const bannerH = BANNER.w * (ART.h / ART.w);
-  doc.addImage(template, "JPEG", BANNER.x, BANNER.y, BANNER.w, bannerH);
-
-  // Paint over the artwork's Dharmapuri address and sign the band off as PMG.
-  const bandX = BANNER.x + ART_BAND.x0 * MM_PER_PX;
-  const bandY = BANNER.y + ART_BAND.y0 * MM_PER_PX;
-  const bandW = (ART_BAND.x1 - ART_BAND.x0) * MM_PER_PX;
-  const bandH = (ART_BAND.y1 - ART_BAND.y0) * MM_PER_PX;
-  doc.setFillColor(ART_RED[0], ART_RED[1], ART_RED[2]);
-  doc.rect(bandX, bandY, bandW, bandH, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(255, 255, 255);
-  doc.text(CERTIFICATE_ISSUER, pageW / 2, bandY + bandH / 2 + 1.1, {
-    align: "center",
+  const doc = new jsPDF({
+    unit: "mm",
+    format: [PAGE.w, PAGE.h],
+    orientation: "landscape",
   });
 
-  // Body: everything the artwork does not carry, laid out top to bottom.
-  const maxWidth = pageW - 40;
-  let y = BANNER.y + bannerH + 12;
+  doc.addImage(artwork, "JPEG", 0, 0, PAGE.w, PAGE.h);
 
-  const put = (
-    text: string,
-    size: number,
-    style: "normal" | "bold",
-    color: [number, number, number],
-    gap: number
-  ) => {
-    doc.setFont("helvetica", style);
-    doc.setFontSize(size);
-    doc.setTextColor(color[0], color[1], color[2]);
-    const lines = doc.splitTextToSize(text, maxWidth) as string[];
-    const lineHeight = size * 0.42;
-    lines.forEach((line, i) => {
-      doc.text(line, pageW / 2, y + lineHeight * (i + 1), { align: "center" });
-    });
-    y += lineHeight * lines.length + gap;
-  };
-
-  put("This is to certify that", 13, "normal", [71, 85, 105], 9);
-  put(input.employeeName || "Employee", 24, "bold", [15, 23, 42], 3);
-  put(`Employee ID: ${input.employeeId}`, 11, "normal", [71, 85, 105], 9);
-  put(
-    `has participated in the ${EVENT} quiz conducted by the Department of Posts, Western Region, Coimbatore, and secured`,
-    11.5,
-    "normal",
-    [51, 65, 85],
-    6
-  );
   const pct = Number.isFinite(input.percentage)
     ? input.percentage.toFixed(1)
     : "0.0";
+
+  put(doc, SLOTS.name, input.employeeName || "Employee");
+  put(doc, SLOTS.empid, `Employee ID: ${input.employeeId}`);
   put(
-    `${input.score} out of ${input.totalMarks} marks (${pct}%)`,
-    18,
-    "bold",
-    ART_RED,
-    10
+    doc,
+    SLOTS.para1,
+    `has participated in the ${EVENT} quiz`
   );
-  put(`Quiz: ${input.quizName}`, 12, "bold", [15, 23, 42], 6);
-
-  const posting = [input.designation, input.officeName, input.division]
-    .filter((v): v is string => !!v && v.trim().length > 0)
-    .join("  ·  ");
-  if (posting) put(posting, 10.5, "normal", [100, 116, 139], 0);
-
-  // Sign-off block.
-  const footerY = pageH - 26;
-  doc.setDrawColor(148, 163, 184);
-  doc.setLineWidth(0.3);
-  doc.line(pageW - 88, footerY - 7, pageW - 20, footerY - 7);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(71, 85, 105);
-  doc.text(`Date: ${formatIssuedOn(input.issuedOn ?? new Date())}`, 20, footerY);
-
-  doc.setFont("helvetica", "bold");
-  doc.text(CERTIFICATE_ISSUER, pageW - 20, footerY, { align: "right" });
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(100, 116, 139);
-  doc.text(
-    "Department of Posts, Government of India",
-    pageW - 20,
-    footerY + 5,
-    { align: "right" }
+  put(
+    doc,
+    SLOTS.para2,
+    "conducted by the Department of Posts, Western Region, Coimbatore, and secured"
   );
-
-  doc.setFontSize(8);
-  doc.text("This is a system generated certificate.", pageW / 2, pageH - 10, {
-    align: "center",
-  });
+  put(
+    doc,
+    SLOTS.marks,
+    `${input.score} out of ${input.totalMarks} marks (${pct}%)`
+  );
+  put(doc, SLOTS.quiz, `Quiz: ${input.quizName}`);
+  put(
+    doc,
+    SLOTS.posting,
+    [input.designation, input.officeName, input.division]
+      .filter((v): v is string => !!v && v.trim().length > 0)
+      .join(" • ")
+  );
+  put(doc, SLOTS.issuer, CERTIFICATE_ISSUER);
+  put(
+    doc,
+    SLOTS.dept,
+    "Department of Posts, Government of India"
+  );
+  put(
+    doc,
+    SLOTS.date,
+    `Date: ${formatIssuedOn(input.issuedOn ?? new Date())}`
+  );
 
   downloadBlob(doc.output("blob"), `Certificate-${input.employeeId}.pdf`);
 }
