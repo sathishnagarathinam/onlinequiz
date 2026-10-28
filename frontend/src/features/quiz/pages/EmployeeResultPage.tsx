@@ -183,7 +183,7 @@ export function EmployeeResultPage() {
           </div>
         }
       >
-        <main className="max-w-3xl mx-auto px-6 py-10">
+        <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
           <div className="bg-white border border-amber-200 rounded-lg p-8 text-center">
             <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-amber-100 flex items-center justify-center">
               <svg
@@ -237,7 +237,7 @@ export function EmployeeResultPage() {
         </div>
       }
     >
-      <main className="max-w-3xl mx-auto px-6 py-10">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
         <div className="bg-white border border-brand-100 rounded-lg p-8 text-center">
           <div className="mx-auto mb-6 h-20 w-20 rounded-full bg-brand-50 flex items-center justify-center text-3xl font-bold text-slate-600">
             {result?.rank ? `#${result.rank}` : "-"}

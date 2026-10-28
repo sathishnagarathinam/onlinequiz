@@ -35,18 +35,18 @@ export function QuizQuestionCard({
 
   return (
     <div className="bg-white border border-brand-100 rounded-lg shadow-sm">
-      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-bold text-slate-900">
+      <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <span className="text-sm font-bold text-slate-900 whitespace-nowrap">
             Question {questionIndex + 1} / {totalQuestions}
           </span>
           {selectedKey && (
-            <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+            <span className="hidden sm:inline px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
               Answered
             </span>
           )}
         </div>
-        <div className="w-32 sm:w-48 h-2 bg-brand-50 rounded-full overflow-hidden">
+        <div className="w-24 sm:w-48 h-2 bg-brand-50 rounded-full overflow-hidden shrink-0">
           <div
             className="h-full bg-brand-600 transition-all duration-300 ease-out rounded-full"
             style={{ width: `${progressPct}%` }}
@@ -54,7 +54,7 @@ export function QuizQuestionCard({
         </div>
       </div>
 
-      <div className="px-6 py-6 sm:px-8 sm:py-8">
+      <div className="px-4 py-5 sm:px-8 sm:py-8">
         <h3 className="text-lg sm:text-xl font-semibold text-slate-900 leading-relaxed whitespace-pre-wrap">
           {questionText}
         </h3>
@@ -103,7 +103,7 @@ export function QuizQuestionCard({
         </div>
       </div>
 
-      <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+      <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={onPrev}

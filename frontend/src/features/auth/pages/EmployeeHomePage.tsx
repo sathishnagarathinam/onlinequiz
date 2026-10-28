@@ -156,7 +156,7 @@ export function EmployeeHomePage() {
         </button>
       }
     >
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="mb-6">
           <h2 className="text-base font-semibold text-slate-900">
             Your Quizzes

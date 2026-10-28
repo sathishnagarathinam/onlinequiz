@@ -120,16 +120,16 @@ export default function QuestionBankPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold text-slate-900 break-words">
               Question Bank — {quizName || "Loading..."}
             </h1>
             <p className="text-sm text-slate-500 mt-1">
               {questions.length} question{questions.length !== 1 ? "s" : ""}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               onClick={handleDownloadTemplate}
               className="px-3 py-2 text-sm rounded-md border border-brand-100 bg-white text-slate-700 hover:bg-brand-50"

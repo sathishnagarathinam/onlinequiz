@@ -175,8 +175,8 @@ export default function QuizListPage() {
   return (
     <AdminLayout>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="text-xl font-semibold text-slate-900">Quizzes</h1>
             <p className="text-sm text-slate-500 mt-0.5">
               Manage quizzes, questions, and publishing settings
@@ -185,7 +185,7 @@ export default function QuizListPage() {
           <button
             onClick={() => navigate("/admin/quizzes/new")}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md bg-brand-700 px-3.5 py-2",
+              "inline-flex items-center justify-center gap-1.5 rounded-md bg-brand-700 px-3.5 py-2 shrink-0",
               "text-sm font-medium text-white transition hover:bg-brand-700"
             )}
           >

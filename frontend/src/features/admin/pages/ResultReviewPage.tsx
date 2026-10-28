@@ -277,7 +277,7 @@ export default function ResultReviewPage() {
         )}
 
         {!selectedQuizId ? (
-          <div className="bg-white rounded-lg border border-brand-100 shadow-sm p-6">
+          <div className="bg-white rounded-lg border border-brand-100 shadow-sm p-4 sm:p-6">
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Select a quiz to review results
             </label>

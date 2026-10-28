@@ -104,9 +104,9 @@ export default function QuestionUploadPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold text-slate-900 break-words">
               Upload Questions — {quizName || "Loading..."}
             </h1>
             <p className="text-sm text-slate-500 mt-1">
@@ -115,13 +115,13 @@ export default function QuestionUploadPage() {
           </div>
           <button
             onClick={() => navigate("/admin/quizzes")}
-            className="px-3 py-2 text-sm rounded-md border border-brand-100 bg-white text-slate-700 hover:bg-brand-50"
+            className="self-start sm:self-auto shrink-0 px-3 py-2 text-sm rounded-md border border-brand-100 bg-white text-slate-700 hover:bg-brand-50"
           >
             ← Back to Quizzes
           </button>
         </div>
 
-        <section className="bg-white rounded-lg border border-brand-100 p-5 shadow-sm">
+        <section className="bg-white rounded-lg border border-brand-100 p-4 sm:p-5 shadow-sm">
           <h2 className="text-base font-semibold text-slate-900 mb-3">
             Step 1: Choose File
           </h2>

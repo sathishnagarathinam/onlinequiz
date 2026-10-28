@@ -138,7 +138,7 @@ export function EmployeeRankViewPage() {
         </button>
       }
     >
-      <main className="max-w-5xl mx-auto px-6 py-8 space-y-5">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5">
         <div className="bg-white rounded-lg border border-brand-100 shadow-sm p-5">
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Select Quiz

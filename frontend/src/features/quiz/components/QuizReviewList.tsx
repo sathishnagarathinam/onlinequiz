@@ -46,7 +46,7 @@ export function QuizReviewList({ questions, answers }: QuizReviewListProps) {
             key={q.id ?? idx}
             className="bg-white border border-brand-100 rounded-lg"
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
               <span className="text-sm font-bold text-slate-900">
                 Question {idx + 1}
               </span>
@@ -60,7 +60,7 @@ export function QuizReviewList({ questions, answers }: QuizReviewListProps) {
               </span>
             </div>
 
-            <div className="px-6 py-5">
+            <div className="px-4 sm:px-6 py-5">
               <p className="text-base font-medium text-slate-900 leading-relaxed whitespace-pre-wrap">
                 {q.question}
               </p>

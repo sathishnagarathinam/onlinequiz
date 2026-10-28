@@ -32,7 +32,7 @@ export function EmployeeShell({
       <div className="relative z-10 flex-1 flex flex-col">
         <header className="bg-white/95 border-b border-brand-100">
           <div className="postal-stripe h-1.5" />
-          <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <IndiaPostEmblem className="h-10 w-10 rounded-lg shrink-0" />
               <div className="min-w-0">
@@ -47,7 +47,7 @@ export function EmployeeShell({
             {actions}
           </div>
           {(title || subtitle) && (
-            <div className="max-w-5xl mx-auto px-6 pb-3">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-3">
               {title && (
                 <h2 className="text-base font-semibold text-slate-900">
                   {title}

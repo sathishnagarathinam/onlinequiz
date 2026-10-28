@@ -107,8 +107,8 @@ export default function AuditLogPage() {
   return (
     <AdminLayout>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="text-xl font-semibold text-slate-900">Audit Log</h1>
             <p className="text-sm text-slate-500 mt-0.5">
               Complete audit trail of all admin actions
@@ -118,7 +118,7 @@ export default function AuditLogPage() {
             onClick={() => void loadLogs()}
             disabled={loading}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md border border-brand-100 bg-white",
+              "inline-flex items-center gap-1.5 rounded-md border border-brand-100 bg-white self-start sm:self-auto shrink-0",
               "px-3 py-2 text-xs font-medium text-slate-700 transition",
               "hover:bg-brand-50 disabled:opacity-50"
             )}
