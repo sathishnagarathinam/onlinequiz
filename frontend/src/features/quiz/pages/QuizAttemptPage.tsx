@@ -7,15 +7,15 @@ import { useCountdownTimer } from "../../../shared/hooks/useCountdownTimer";
 import {
   getQuiz,
   listQuestions,
-  createAttemptWithLock,
+  startAttempt,
   updateAttempt,
-  findMyAttempt,
   findCompletedAttempt,
   getResultByAttempt,
   evaluateAttemptClient,
+  AlreadyAttemptedError,
 } from "../../../shared/services/firestoreApi";
 import { callSubmitQuiz } from "../../../shared/services/functionsApi";
-import { seededShuffle, shuffleOptions } from "../../../shared/utils/shuffle";
+import { shuffleOptions } from "../../../shared/utils/shuffle";
 import { cn } from "../../../shared/utils/ui";
 import { EmployeeShell } from "../../auth/components/EmployeeShell";
 import type { Quiz, Question, Attempt } from "../../../shared/types/firestore";
@@ -219,52 +219,40 @@ export function QuizAttemptPage() {
           return;
         }
 
-        let existing = await findMyAttempt(empUid, quizId);
+        const questions = await listQuestions(quizId);
+        if (cancelled) return;
+        setAllQuestions(questions);
+
+        // startAttempt freezes the shuffled subset on the attempt document, so a
+        // reload shows the same questions and the scorer counts only those. It
+        // also resumes the employee's existing attempt instead of creating a
+        // second one, and refuses to start again once they have submitted.
+        const { attempt: currentAttempt } = await startAttempt({
+          uid: empUid,
+          employeeId: dbUser.employeeId!,
+          quizId,
+          allQuestionIds: questions.filter((q) => q.id).map((q) => q.id!),
+          numQuestionsToShow: loadedQuiz.numQuestionsToShow ?? questions.length,
+        });
         if (cancelled) return;
 
-        let currentAttempt: Attempt;
-        if (existing && existing.status === "in_progress") {
-          currentAttempt = existing;
-        } else {
-          const { attemptId: newId } = await createAttemptWithLock({
-            uid: empUid,
-            employeeId: dbUser.employeeId!,
-            quizId,
-            seed: Math.floor(Math.random() * 1000000000),
-            status: "in_progress",
-          });
-          const refetched = await findMyAttempt(empUid, quizId);
-          if (!refetched) {
-            setInitError("Failed to start quiz attempt");
-            setLoading(false);
-            return;
-          }
-          currentAttempt = refetched;
-          currentAttempt.id = newId;
-        }
-
         setAttempt(currentAttempt);
+        setQuestionOrder(currentAttempt.questionIds ?? []);
+        setCurrentIndex(0);
 
         if (currentAttempt.answers) {
           setAnswers({ ...currentAttempt.answers });
           lastSavedAnswersRef.current = { ...currentAttempt.answers };
         }
-
-        const questions = await listQuestions(quizId);
-        if (cancelled) return;
-        setAllQuestions(questions);
-
-        const qIds = questions.filter((q) => q.id).map((q) => q.id!);
-        const shuffled = seededShuffle(qIds, currentAttempt.seed);
-        const toShow = Math.min(
-          loadedQuiz.numQuestionsToShow ?? shuffled.length,
-          shuffled.length
-        );
-        const order = shuffled.slice(0, toShow);
-        setQuestionOrder(order);
-        setCurrentIndex(0);
       } catch (e) {
         if (cancelled) return;
+        if (e instanceof AlreadyAttemptedError) {
+          setRedirecting(true);
+          setTimeout(() => {
+            navigate(`/employee/pending-results/${quizId}`, { replace: true });
+          }, 1500);
+          return;
+        }
         console.error("[quiz] init failed", e);
         setInitError(e instanceof Error ? e.message : "Failed to load quiz");
       } finally {

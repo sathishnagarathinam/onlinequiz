@@ -7,7 +7,7 @@ import {
   getQuiz,
   listQuestions,
 } from "../../../shared/services/firestoreApi";
-import { seededShuffle } from "../../../shared/utils/shuffle";
+import { pickQuestionIds } from "../../../shared/utils/shuffle";
 import type { Question, Quiz, Result } from "../../../shared/types/firestore";
 import { cn, formatSeconds, formatTimestamp } from "../../../shared/utils/ui";
 import { isResultVisible } from "../../../shared/utils/publish";
@@ -95,16 +95,16 @@ export function EmployeeResultPage() {
 
         const withIds = questions.filter((q) => q.id);
         const byId = new Map(withIds.map((q) => [q.id!, q] as const));
-        const shuffled = seededShuffle(
-          withIds.map((q) => q.id!),
-          attempt.seed
-        );
-        const toShow = Math.min(
-          quiz?.numQuestionsToShow ?? shuffled.length,
-          shuffled.length
-        );
-        const ordered = shuffled
-          .slice(0, toShow)
+        // The attempt stores exactly what it showed. Attempts made before that
+        // was stored are rebuilt from the same seed shuffle.
+        const ids = attempt.questionIds?.length
+          ? attempt.questionIds
+          : pickQuestionIds(
+              withIds.map((q) => q.id!),
+              attempt.seed,
+              quiz?.numQuestionsToShow ?? withIds.length
+            );
+        const ordered = ids
           .map((id) => byId.get(id))
           .filter((q): q is Question => q !== undefined);
 

@@ -65,7 +65,14 @@ export interface Attempt {
   uid: string;
   employeeId: string;
   quizId: string;
+  /** Fixed at attempt start: drives the question and option shuffling. */
   seed: number;
+  /**
+   * The exact questions this attempt shows, already shuffled and cut down to the
+   * quiz's "questions to show". Scoring and the review read it so only the
+   * questions the employee actually saw are counted.
+   */
+  questionIds?: string[];
   status: AttemptStatus;
   answers?: Record<string, "A" | "B" | "C" | "D" | null>;
   startedAt: unknown;

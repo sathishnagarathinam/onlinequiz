@@ -42,14 +42,20 @@ async function evaluateAttempt(
     return { resultId: existing.id, score: existing.data().score };
   }
 
-  const priorCompletedCount = await db
+  // One attempt per employee per quiz. The attempt being scored is already
+  // flagged "completed" by the client before this call, so it has to be excluded
+  // — otherwise every first submission would look like a duplicate.
+  const priorAttemptsSnap = await db
     .collection("attempts")
     .where("employeeId", "==", employeeId)
     .where("quizId", "==", quizId)
-    .where("status", "in", ["completed", "evaluated", "rejected"])
-    .count()
-    .get()
-    .then((snap) => snap.data().count);
+    .get();
+
+  const priorCompletedCount = priorAttemptsSnap.docs.filter(
+    (d) =>
+      d.id !== attemptId &&
+      ["completed", "evaluated", "rejected"].includes(d.data().status)
+  ).length;
 
   const lockId = `${employeeId}_${quizId}`;
   const lockRef = db.collection("attemptLocks").doc(lockId);
@@ -127,10 +133,23 @@ async function evaluateAttempt(
     .collection("questions")
     .get();
 
-  const questions = questionsSnap.docs.map((d) => ({
+  const allQuestions = questionsSnap.docs.map((d) => ({
     id: d.id,
     ...(d.data() as { correctAnswer?: string; marks?: number }),
   }));
+
+  // Score only the questions this attempt actually showed. Attempts created
+  // before the subset was stored fall back to the whole question bank.
+  const questionById = new Map(allQuestions.map((q) => [q.id, q] as const));
+  const shownIds: string[] = Array.isArray(attempt.questionIds)
+    ? attempt.questionIds
+    : [];
+
+  const questions = shownIds.length
+    ? shownIds
+        .map((id) => questionById.get(id))
+        .filter((q): q is (typeof allQuestions)[number] => q !== undefined)
+    : allQuestions;
 
   const userSnap = await db.collection("users").doc(uid).get();
   const userData = userSnap.exists ? userSnap.data()! : {};

@@ -15,8 +15,10 @@ import {
   writeBatch,
   limit,
   QueryConstraint,
+  runTransaction,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { pickQuestionIds } from "../utils/shuffle";
 import type {
   Quiz,
   Question,
@@ -227,31 +229,109 @@ export interface AttemptLockData {
   closed?: boolean;
 }
 
-export async function createAttemptWithLock(
-  attempt: Omit<Attempt, "id" | "startedAt">
-): Promise<{ attemptId: string }> {
-  const { employeeId, quizId, uid } = attempt;
-  const lockId = `${employeeId}_${quizId}`;
-  const attemptRef = doc(collection(db, COL.ATTEMPTS));
-  const lockRef = doc(db, "attemptLocks", lockId);
-  const batch = writeBatch(db);
-  batch.set(attemptRef, withTimestamps({ ...attempt, startedAt: serverTimestamp() }, true));
-  batch.set(
-    lockRef,
-    withTimestamps(
-      {
-        employeeId,
-        quizId,
-        attemptId: attemptRef.id,
-        uid,
-        closed: false,
-      },
-      true
-    ),
-    { merge: true }
-  );
-  await batch.commit();
-  return { attemptId: attemptRef.id };
+/** Thrown when an employee who already attended the quiz tries to start again. */
+export class AlreadyAttemptedError extends Error {
+  constructor(message = "You have already attempted this quiz.") {
+    super(message);
+    this.name = "AlreadyAttemptedError";
+  }
+}
+
+export interface StartAttemptInput {
+  uid: string;
+  employeeId: string;
+  quizId: string;
+  /** Every question id in the quiz; the attempt picks its own subset from these. */
+  allQuestionIds: string[];
+  /** Quiz setting "questions to show" — how many are picked for this attempt. */
+  numQuestionsToShow: number;
+}
+
+export interface StartedAttempt {
+  attempt: Attempt;
+  /** True when an unfinished attempt was resumed instead of a new one created. */
+  resumed: boolean;
+}
+
+/**
+ * The single attempt this employee is allowed for this quiz.
+ *
+ * Reading the lock and writing the new attempt happen in one transaction, so a
+ * double click or a second tab cannot create two attempts: the losing
+ * transaction sees the lock already pointing at an attempt and resumes it.
+ * A submitted attempt — or a closed lock — refuses to start again.
+ *
+ * The question order and subset are frozen here, at the attempt document, so the
+ * scorer and the review show exactly what the employee saw.
+ */
+export async function startAttempt(
+  input: StartAttemptInput
+): Promise<StartedAttempt> {
+  const { uid, employeeId, quizId, allQuestionIds, numQuestionsToShow } = input;
+  const lockRef = doc(db, "attemptLocks", `${employeeId}_${quizId}`);
+  const newAttemptRef = doc(collection(db, COL.ATTEMPTS));
+
+  return runTransaction(db, async (tx) => {
+    const lockSnap = await tx.get(lockRef);
+    const linkedId = lockSnap.exists()
+      ? (lockSnap.data().attemptId as string | undefined)
+      : undefined;
+
+    if (linkedId) {
+      const linkedSnap = await tx.get(doc(db, COL.ATTEMPTS, linkedId));
+      if (linkedSnap.exists()) {
+        const linked = { id: linkedId, ...linkedSnap.data() } as Attempt;
+
+        if (isSubmittedAttempt(linked) || lockSnap.data()?.closed === true) {
+          throw new AlreadyAttemptedError();
+        }
+
+        if (linked.status === "in_progress") {
+          return {
+            resumed: true,
+            attempt: {
+              ...linked,
+              // Attempts started before the subset was stored fall back to
+              // re-deriving the order from their seed.
+              questionIds:
+                linked.questionIds ??
+                pickQuestionIds(allQuestionIds, linked.seed, numQuestionsToShow),
+            },
+          };
+        }
+      }
+    }
+
+    const seed = Math.floor(Math.random() * 1000000000);
+    const questionIds = pickQuestionIds(allQuestionIds, seed, numQuestionsToShow);
+    const attempt: Attempt = {
+      uid,
+      employeeId,
+      quizId,
+      seed,
+      questionIds,
+      status: "in_progress",
+      startedAt: serverTimestamp(),
+    };
+
+    tx.set(newAttemptRef, withTimestamps({ ...attempt }, true));
+    tx.set(
+      lockRef,
+      withTimestamps(
+        {
+          employeeId,
+          quizId,
+          attemptId: newAttemptRef.id,
+          uid,
+          closed: false,
+        },
+        true
+      ),
+      { merge: true }
+    );
+
+    return { resumed: false, attempt: { id: newAttemptRef.id, ...attempt } };
+  });
 }
 
 export async function getAttempt(attemptId: string): Promise<Attempt | null> {
@@ -289,21 +369,6 @@ export async function findCompletedAttempt(
   // can be either "completed" or "evaluated" once scoring has run.
   const found = snap.docs.find((d) => isSubmittedAttempt(d.data() as Attempt));
   return found ? ({ id: found.id, ...found.data() } as Attempt) : null;
-}
-
-export async function findMyAttempt(
-  uid: string,
-  quizId: string
-): Promise<Attempt | null> {
-  const q = query(
-    collection(db, COL.ATTEMPTS),
-    where("uid", "==", uid),
-    where("quizId", "==", quizId),
-    orderBy("startedAt", "desc"),
-    limit(1)
-  );
-  const snap = await getDocs(q);
-  return snap.empty ? null : ({ id: snap.docs[0].id, ...snap.docs[0].data() } as Attempt);
 }
 
 /** Every attempt made by one employee, used to keep submitted quizzes on the home screen. */
@@ -404,6 +469,15 @@ export async function evaluateAttemptClient(attemptId: string): Promise<string |
   const questions = await listQuestions(attempt.quizId);
   if (questions.length === 0) return null;
 
+  // Only the questions this attempt actually showed are scored. Older attempts
+  // did not store the subset, so they fall back to the whole question bank.
+  const byId = new Map(questions.map((q) => [q.id ?? "", q] as const));
+  const scored = attempt.questionIds?.length
+    ? attempt.questionIds
+        .map((id) => byId.get(id))
+        .filter((q): q is Question => q !== undefined)
+    : questions;
+
   const answers: Record<string, string | null> = attempt.answers;
   const negativeMarking = quiz?.negativeMarking === true;
   const negativeMarkValue = quiz?.negativeMarkValue ?? 0;
@@ -414,7 +488,7 @@ export async function evaluateAttemptClient(attemptId: string): Promise<string |
   let score = 0;
   let totalMarks = 0;
 
-  for (const q of questions) {
+  for (const q of scored) {
     const submitted = answers[q.id ?? ""] ?? null;
     const marksEach = q.marks ?? 0;
     totalMarks += marksEach;

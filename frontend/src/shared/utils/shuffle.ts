@@ -27,3 +27,20 @@ export function shuffleOptions(
   const combined = seed * 1000 + questionIndex;
   return seededShuffle(options, combined);
 }
+
+/**
+ * The questions one attempt shows, in the order it shows them.
+ *
+ * Every question id is shuffled with the attempt seed and the first `count` are
+ * kept, so two employees (different seeds) get a different first question and a
+ * different subset. Passing a non-positive `count` keeps every question.
+ */
+export function pickQuestionIds(
+  allQuestionIds: string[],
+  seed: number,
+  count: number
+): string[] {
+  const shuffled = seededShuffle(allQuestionIds, seed);
+  const size = count > 0 ? Math.min(count, shuffled.length) : shuffled.length;
+  return shuffled.slice(0, size);
+}
