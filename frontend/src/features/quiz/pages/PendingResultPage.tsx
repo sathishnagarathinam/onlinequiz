@@ -7,6 +7,7 @@ import {
   getResultByAttempt,
 } from "../../../shared/services/firestoreApi";
 import { EmployeeShell } from "../../auth/components/EmployeeShell";
+import { PledgePrompt } from "../../../shared/components/PledgePrompt";
 
 export function PendingResultPage() {
   const { quizId = "" } = useParams<{ quizId: string }>();
@@ -102,6 +103,8 @@ export function PendingResultPage() {
             </div>
           </div>
         </div>
+
+        <PledgePrompt className="mb-6" />
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link

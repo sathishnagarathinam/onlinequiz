@@ -12,6 +12,7 @@ import type { Question, Quiz, Result } from "../../../shared/types/firestore";
 import { cn, formatSeconds, formatTimestamp } from "../../../shared/utils/ui";
 import { isResultVisible } from "../../../shared/utils/publish";
 import { EmployeeShell } from "../../auth/components/EmployeeShell";
+import { PledgePrompt } from "../../../shared/components/PledgePrompt";
 import { QuizReviewList } from "../components/QuizReviewList";
 
 type AnswerKey = "A" | "B" | "C" | "D" | null;
@@ -212,6 +213,8 @@ export function EmployeeResultPage() {
               Awaiting publication
             </div>
           </div>
+
+          <PledgePrompt className="mt-6" />
         </main>
       </EmployeeShell>
     );
@@ -298,6 +301,8 @@ export function EmployeeResultPage() {
             </div>
           )}
         </div>
+
+        <PledgePrompt className="mt-6" />
 
         {reviewQuestions && reviewQuestions.length > 0 && (
           <section className="mt-8">
