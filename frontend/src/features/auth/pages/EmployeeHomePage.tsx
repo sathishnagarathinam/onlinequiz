@@ -191,27 +191,47 @@ export function EmployeeHomePage() {
                   {q.name}
                 </h3>
                 {q.description && (
-                  <p className="mt-1 text-xs text-slate-500 line-clamp-2">
+                  <p className="mt-1 text-xs text-slate-500 break-words whitespace-pre-line">
                     {q.description}
                   </p>
                 )}
                 <dl className="mt-4 space-y-1.5 text-xs">
-                  <div className="flex justify-between">
-                    <dt className="text-slate-500">Duration</dt>
-                    <dd className="font-medium text-slate-700">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-500 shrink-0">Duration</dt>
+                    <dd className="font-medium text-slate-700 text-right">
                       {q.durationMinutes} min
                     </dd>
                   </div>
-                  <div className="flex justify-between">
-                    <dt className="text-slate-500">Marks</dt>
-                    <dd className="font-medium text-slate-700">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-500 shrink-0">Questions</dt>
+                    <dd className="font-medium text-slate-700 text-right">
+                      {q.numQuestionsToShow}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-500 shrink-0">Marks</dt>
+                    <dd className="font-medium text-slate-700 text-right">
                       {q.totalMarks}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-500 shrink-0">Negative Marking</dt>
+                    <dd className="font-medium text-slate-700 text-right">
+                      {q.negativeMarking
+                        ? `Yes · −${q.negativeMarkValue} per wrong`
+                        : "No"}
                     </dd>
                   </div>
                   <div className="pt-1 border-t border-slate-100">
                     <dt className="text-slate-500 mb-0.5">Open Period</dt>
                     <dd className="font-medium text-slate-700 text-[11px] leading-tight">
                       {formatTimeRange(q.openTime, q.closeTime)}
+                    </dd>
+                  </div>
+                  <div className="pt-1 border-t border-slate-100">
+                    <dt className="text-slate-500 mb-0.5">Result Publish Time</dt>
+                    <dd className="font-medium text-slate-700 text-[11px] leading-tight">
+                      {formatTimestamp(q.resultsPublishAt) || "Not scheduled"}
                     </dd>
                   </div>
                 </dl>
