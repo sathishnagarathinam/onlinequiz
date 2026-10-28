@@ -33,6 +33,24 @@ export function useCountdownTimer(
     onExpire?.();
   }, [onExpire]);
 
+  // The duration is usually still unknown on the first render (the quiz
+  // document is loading, so the caller passes 0 and autoStart is false), and
+  // useState only reads its argument once. Adopt the real duration, and start
+  // the clock, as soon as it arrives — otherwise the timer sits on 00:00 and
+  // never runs.
+  useEffect(() => {
+    if (initialSeconds <= 0) return;
+    totalRef.current = initialSeconds;
+    setRemaining(initialSeconds);
+    expiredRef.current = false;
+  }, [initialSeconds]);
+
+  useEffect(() => {
+    if (!autoStart || initialSeconds <= 0) return;
+    expiredRef.current = false;
+    setRunning(true);
+  }, [autoStart, initialSeconds]);
+
   useEffect(() => {
     if (!running) return;
     tickRef.current = window.setInterval(() => {
