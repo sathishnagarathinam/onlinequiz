@@ -10,6 +10,7 @@ import {
 import { pickQuestionIds } from "../../../shared/utils/shuffle";
 import type { Question, Quiz, Result } from "../../../shared/types/firestore";
 import { cn, formatSeconds, formatTimestamp } from "../../../shared/utils/ui";
+import { exportCertificatePdf } from "../../../shared/utils/certificate";
 import { isResultVisible } from "../../../shared/utils/publish";
 import { EmployeeShell } from "../../auth/components/EmployeeShell";
 import { PledgePrompt } from "../../../shared/components/PledgePrompt";
@@ -39,6 +40,33 @@ export function EmployeeResultPage() {
   const [error, setError] = useState<string | null>(null);
   const [reviewQuestions, setReviewQuestions] = useState<Question[] | null>(null);
   const [reviewAnswers, setReviewAnswers] = useState<Record<string, AnswerKey>>({});
+  const [certBusy, setCertBusy] = useState(false);
+  const [certError, setCertError] = useState<string | null>(null);
+
+  const downloadCertificate = async () => {
+    if (!result) return;
+    setCertBusy(true);
+    setCertError(null);
+    try {
+      await exportCertificatePdf({
+        employeeName: result.employeeName || dbUser?.name || "Employee",
+        employeeId: result.employeeId,
+        quizName: quiz?.name ?? "Vigilance Awareness Week 2026 Quiz",
+        score: result.adjustedScore ?? result.score,
+        totalMarks: result.totalMarks,
+        percentage: result.percentage,
+        officeName: result.officeName,
+        division: result.division,
+        designation: result.designation,
+      });
+    } catch (e) {
+      setCertError(
+        e instanceof Error ? e.message : "Could not generate the certificate."
+      );
+    } finally {
+      setCertBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (authLoading || !allowed || !resultId) return;
@@ -298,6 +326,36 @@ export function EmployeeResultPage() {
                   {formatTimestamp(result.evaluatedAt)}
                 </div>
               </div>
+            </div>
+          )}
+
+          {result && (
+            <div className="mt-8">
+              <button
+                type="button"
+                onClick={() => void downloadCertificate()}
+                disabled={certBusy}
+                className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"
+                  />
+                </svg>
+                {certBusy ? "Preparing…" : "Download Certificate"}
+              </button>
+              {certError && (
+                <p className="mt-2 text-xs text-red-600">{certError}</p>
+              )}
             </div>
           )}
         </div>
