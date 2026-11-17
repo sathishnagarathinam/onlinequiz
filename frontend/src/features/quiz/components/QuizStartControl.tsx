@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Timestamp } from "firebase/firestore";
 import { cn } from "../../../shared/utils/ui";
 
@@ -58,6 +58,8 @@ export function QuizStartControl({
   resultPublishAt,
 }: QuizStartControlProps) {
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [warningOpen, setWarningOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Tick only while a countdown is actually on screen (quiz start or publish).
   useEffect(() => {
@@ -160,9 +162,38 @@ export function QuizStartControl({
     );
   }
 
+  const beginQuiz = () => {
+        sessionStorage.removeItem(`quiz-active:${quizId}`);
+        const fullscreenRequest = document.documentElement.requestFullscreen?.();
+        fullscreenRequest?.catch(() => undefined);
+        navigate(`/employee/quiz/${quizId}`);
+  };
+
   return (
-    <Link to={`/employee/quiz/${quizId}`} className={primaryButton}>
-      Start Quiz
-    </Link>
+    <>
+      <button type="button" onClick={() => setWarningOpen(true)} className={primaryButton}>
+        Start Quiz
+      </button>
+      {warningOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-bold text-slate-900">Before you start</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Do not close or minimise this window, switch tabs, refresh the page,
+              or leave the quiz. Any such action will reset your quiz session and
+              return you to the home page. Your answers will not be saved.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={() => setWarningOpen(false)} className="flex-1 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Cancel
+              </button>
+              <button type="button" onClick={beginQuiz} className="flex-1 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
+                I Understand — Start
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -63,7 +63,7 @@ function LandingPage() {
 
           <div className="space-y-4">
             <Link
-              to="/employee/login"
+              to="/employee/login?type=department"
               className={cn(
                 "group block w-full p-6 rounded-xl border-2 transition-all",
                 "bg-white/95 backdrop-blur-sm border-white/40 hover:border-brand-500 hover:shadow-2xl hover:-translate-y-0.5"
@@ -106,6 +106,27 @@ function LandingPage() {
                     d="M9 5l7 7-7 7"
                   />
                 </svg>
+              </div>
+            </Link>
+
+            <Link
+              to="/employee/login?type=other"
+              className={cn(
+                "group block w-full p-6 rounded-xl border-2 transition-all",
+                "bg-white/95 backdrop-blur-sm border-white/40 hover:border-gold-500 hover:shadow-2xl hover:-translate-y-0.5"
+              )}
+            >
+              <div className="flex items-center gap-5">
+                <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-gold-50 text-gold-600 flex items-center justify-center group-hover:bg-gold-500 group-hover:text-white transition-colors">
+                  <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m4-10a4 4 0 110 8 4 4 0 010-8zm6 4a3 3 0 10-2.83-4" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="text-lg font-bold text-slate-900 group-hover:text-brand-700 transition-colors">Others</div>
+                  <div className="text-sm text-slate-500 mt-0.5">Register or log in with your mobile number</div>
+                </div>
+                <svg className="h-5 w-5 text-slate-300 group-hover:text-gold-500 group-hover:translate-x-1 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7-7-7" /></svg>
               </div>
             </Link>
 

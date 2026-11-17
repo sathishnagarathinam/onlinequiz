@@ -19,6 +19,8 @@ import { cn, timestampToLocalInput } from "../../../shared/utils/ui";
 const schema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   description: z.string().optional(),
+  accessType: z.enum(["department", "other"]),
+  registrationInstructions: z.string().min(1, "Instructions are required for Others quizzes").optional(),
   durationMinutes: z.coerce
     .number()
     .int("Duration must be an integer")
@@ -69,6 +71,8 @@ export default function QuizFormPage() {
     defaultValues: {
       name: "",
       description: "",
+      accessType: "department",
+      registrationInstructions: "",
       durationMinutes: 30,
       totalMarks: 100,
       negativeMarking: false,
@@ -101,6 +105,8 @@ export default function QuizFormPage() {
             reset({
               name: quiz.name,
               description: quiz.description ?? "",
+              accessType: quiz.accessType ?? "department",
+              registrationInstructions: quiz.registrationInstructions ?? "",
               durationMinutes: quiz.durationMinutes,
               totalMarks: quiz.totalMarks,
               negativeMarking: quiz.negativeMarking,
@@ -129,6 +135,8 @@ export default function QuizFormPage() {
       const basePayload: Omit<Quiz, "id" | "createdAt" | "createdBy" | "updatedAt"> = {
         name: data.name.trim(),
         description: data.description?.trim() || undefined,
+        accessType: data.accessType,
+        registrationInstructions: data.accessType === "other" ? data.registrationInstructions?.trim() : undefined,
         durationMinutes: data.durationMinutes,
         totalMarks: data.totalMarks,
         negativeMarking: data.negativeMarking,
@@ -231,6 +239,26 @@ export default function QuizFormPage() {
                 <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>
               )}
             </div>
+
+            <fieldset className="pt-1">
+              <legend className="block text-sm font-medium text-slate-700 mb-2">Quiz audience</legend>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <label className="inline-flex items-center gap-2">
+                  <input type="radio" value="department" {...register("accessType")} /> Department employees
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input type="radio" value="other" {...register("accessType")} /> Others / external participants
+                </label>
+              </div>
+            </fieldset>
+
+            {watch("accessType") === "other" && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Instructions for new participants <span className="text-red-500">*</span></label>
+                <textarea rows={5} {...register("registrationInstructions")} className={cn("w-full rounded-md border px-3 py-2 text-sm outline-none transition resize-y", errors.registrationInstructions ? "border-red-400" : "border-slate-300")} placeholder="Enter the instructions to show before registration..." />
+                {errors.registrationInstructions && <p className="mt-1 text-xs text-red-500">{errors.registrationInstructions.message}</p>}
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>

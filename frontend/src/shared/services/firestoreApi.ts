@@ -140,7 +140,8 @@ interface ListQuizzesForEmployeeOptions {
 export async function listQuizzesForEmployee(
   officeName?: string,
   division?: string,
-  opts: ListQuizzesForEmployeeOptions = {}
+  opts: ListQuizzesForEmployeeOptions = {},
+  userType: "department" | "other" = "department"
 ): Promise<Quiz[]> {
   const {
     now = new Date(),
@@ -152,6 +153,8 @@ export async function listQuizzesForEmployee(
   const all = await listQuizzes();
   const nowTs = Timestamp.fromDate(now);
   return all.filter((q) => {
+    if ((q.accessType ?? "department") !== userType) return false;
+    if (userType === "other") return true;
     const open = q.openTime as Timestamp;
     const close = q.closeTime as Timestamp;
     if (!open || !close) return false;
@@ -345,6 +348,12 @@ export async function updateAttempt(
   patch: Partial<Attempt>
 ): Promise<void> {
   await updateDoc(doc(db, COL.ATTEMPTS, attemptId), stripUndefined(patch));
+}
+
+/** Remove an unfinished attempt and its lock when the participant leaves. */
+export async function abandonAttempt(attemptId: string, employeeId: string, quizId: string): Promise<void> {
+  await deleteDoc(doc(db, COL.ATTEMPTS, attemptId));
+  await deleteDoc(doc(db, "attemptLocks", `${employeeId}_${quizId}`));
 }
 
 /**

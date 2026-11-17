@@ -103,7 +103,7 @@ export function EmployeeRankViewPage() {
 
   const handleLogout = async () => {
     await logout();
-    navigate("/employee/login", { replace: true });
+    navigate(dbUser?.userType === "other" ? "/employee/login?type=other" : "/employee/login?type=department", { replace: true });
   };
 
   const myResult = useMemo(() => {

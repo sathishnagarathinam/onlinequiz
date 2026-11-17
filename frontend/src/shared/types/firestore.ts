@@ -3,13 +3,19 @@ export type UserRole = "admin" | "employee";
 export interface FirestoreUser {
   uid: string;
   role: UserRole;
-  email?: string;
   displayName?: string;
   employeeId?: string;
   name?: string;
   officeName?: string;
   division?: string;
   designation?: string;
+  userType?: "department" | "other";
+  dateOfBirth?: string;
+  mobileNumber?: string;
+  email?: string;
+  postalPincode?: string;
+  teamMemberTwoName?: string;
+  teamMemberTwoDob?: string;
   createdAt: unknown;
   updatedAt?: unknown;
 }
@@ -18,6 +24,8 @@ export interface Quiz {
   id?: string;
   name: string;
   description?: string;
+  accessType?: "department" | "other";
+  registrationInstructions?: string;
   durationMinutes: number;
   totalMarks: number;
   negativeMarking: boolean;

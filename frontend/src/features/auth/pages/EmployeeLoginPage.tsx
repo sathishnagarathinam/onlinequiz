@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   useAuthCtx,
   EMPLOYEE_ID_PATTERN,
@@ -11,6 +11,7 @@ import {
 } from "../context/AuthContext";
 import { cn } from "../../../shared/utils/ui";
 import { IndiaPostEmblem } from "../../../shared/components/IndiaPostEmblem";
+import { listQuizzesForEmployee } from "../../../shared/services/firestoreApi";
 
 /** Background artwork per onboarding step, rendered at low opacity. */
 const LOGIN_BACKGROUNDS: Record<1 | 2, string> = {
@@ -31,9 +32,14 @@ const profileSchema = z.object({
   division: z.string().min(1, "Division is required"),
   designation: z.string().min(2, "Designation must be at least 2 characters"),
 });
+const otherCredentialsSchema = z.object({ mobileNumber: z.string().regex(/^\d{10}$/, "Mobile number must be exactly 10 digits") });
+const adultAgeCheck = (value: string) => { const dob = new Date(`${value}T00:00:00`); if (Number.isNaN(dob.getTime())) return false; const today = new Date(); let age = today.getFullYear() - dob.getFullYear(); const beforeBirthday = today < new Date(today.getFullYear(), dob.getMonth(), dob.getDate()); if (beforeBirthday) age -= 1; return age >= 18 && age <= 25; };
+const otherProfileSchema = z.object({ name: z.string().min(2, "Name is required"), teamMemberTwoName: z.string().min(2, "Second team member name is required"), dateOfBirth: z.string().min(1, "DOB is required").refine(adultAgeCheck, "Age must be between 18 and 25 years"), teamMemberTwoDob: z.string().min(1, "Second member DOB is required").refine(adultAgeCheck, "Age must be between 18 and 25 years"), mobileNumber: z.string().regex(/^\d{10}$/, "Mobile number must be exactly 10 digits"), email: z.string().email("Enter a valid email"), postalPincode: z.string().regex(/^\d{6}$/, "Pincode must be 6 digits") });
 
 type CredentialsFormData = z.infer<typeof credentialsSchema>;
 type ProfileFormData = z.infer<typeof profileSchema>;
+type OtherCredentials = z.infer<typeof otherCredentialsSchema>;
+type OtherProfile = z.infer<typeof otherProfileSchema>;
 
 const inputClass = (hasError: boolean) =>
   cn(
@@ -43,16 +49,32 @@ const inputClass = (hasError: boolean) =>
 
 export function EmployeeLoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [testName, setTestName] = useState(searchParams.get("testName"));
+  const [registrationInstructions, setRegistrationInstructions] = useState("");
+  const [showInstructions, setShowInstructions] = useState(false);
   const {
     verifyEmployeeCredentials,
     saveEmployeeProfile,
     setEmployeeIdentity,
     loginError,
     loading: authLoading,
+    verifyOtherCredentials,
+    saveOtherProfile,
   } = useAuthCtx();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [verifiedId, setVerifiedId] = useState("");
+  const [mode] = useState<"department" | "other">(
+    searchParams.get("type") === "other" ? "other" : "department"
+  );
+
+  useEffect(() => {
+    if (mode !== "other" || testName) return;
+    void listQuizzesForEmployee(undefined, undefined, { includeUpcoming: true }, "other")
+      .then((quizzes) => { setTestName(quizzes[0]?.name ?? "Online Quiz"); setRegistrationInstructions(quizzes[0]?.registrationInstructions ?? ""); })
+      .catch(() => setTestName("Online Quiz"));
+  }, [mode, testName]);
 
   const credentialsForm = useForm<CredentialsFormData>({
     resolver: zodResolver(credentialsSchema),
@@ -63,6 +85,8 @@ export function EmployeeLoginPage() {
     resolver: zodResolver(profileSchema),
     defaultValues: { name: "", officeName: "", division: "", designation: "" },
   });
+  const otherCredentialsForm = useForm<OtherCredentials>({ resolver: zodResolver(otherCredentialsSchema), defaultValues: { mobileNumber: "" } });
+  const otherProfileForm = useForm<OtherProfile>({ resolver: zodResolver(otherProfileSchema), defaultValues: { name: "", teamMemberTwoName: "", dateOfBirth: "", teamMemberTwoDob: "", mobileNumber: "", email: "", postalPincode: "" } });
 
   const loading = authLoading || credentialsForm.formState.isSubmitting;
 
@@ -86,6 +110,19 @@ export function EmployeeLoginPage() {
     if (result.ok) {
       navigate("/employee/home", { replace: true });
     }
+  };
+  const onOtherCredentialsSubmit = async (data: OtherCredentials) => {
+    const result = await verifyOtherCredentials(data.mobileNumber, DEFAULT_EMPLOYEE_PASSWORD);
+    if (!result.ok) return;
+    if (result.profile) { setEmployeeIdentity(result.profile); navigate("/employee/home", { replace: true }); return; }
+    otherProfileForm.setValue("mobileNumber", data.mobileNumber.trim());
+    setVerifiedId(data.mobileNumber.trim());
+    if (registrationInstructions) setShowInstructions(true);
+    else setStep(2);
+  };
+  const onOtherProfileSubmit = async (data: OtherProfile) => {
+    const result = await saveOtherProfile({ ...data, employeeId: data.mobileNumber, officeName: "", division: "", designation: "", userType: "other" });
+    if (result.ok) navigate("/employee/home", { replace: true });
   };
 
   const stepTwoLoading = authLoading || profileForm.formState.isSubmitting;
@@ -114,10 +151,9 @@ export function EmployeeLoginPage() {
               </div>
             </div>
             <p className="text-xs text-slate-500 mt-3">
-              {step === 1
-                ? "Enter your Employee ID and password"
-                : "Confirm your details"}
+              {mode === "other" ? (step === 1 ? "Enter your mobile number and password" : "Register before starting the exam") : (step === 1 ? "Enter your Employee ID and password" : "Confirm your details")}
             </p>
+            {mode === "other" && step === 2 && testName && <p className="mt-2 text-sm font-semibold text-slate-800">Test: {testName}</p>}
           </div>
 
         {loginError && (
@@ -126,7 +162,36 @@ export function EmployeeLoginPage() {
           </div>
         )}
 
-        {step === 1 ? (
+        {showInstructions && mode === "other" && (
+          <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 px-4">
+            <div className="w-full max-w-lg rounded-lg bg-white shadow-xl border border-brand-100 p-6">
+              <h2 className="text-lg font-semibold text-slate-900">Quiz Instructions</h2>
+              {testName && <p className="mt-1 text-sm font-medium text-brand-700">{testName}</p>}
+              <div
+                className="mt-4 max-h-64 overflow-y-auto whitespace-pre-line text-sm text-slate-600 select-none"
+                onCopy={(event) => event.preventDefault()}
+                onCut={(event) => event.preventDefault()}
+                onContextMenu={(event) => event.preventDefault()}
+              >
+                {registrationInstructions}
+              </div>
+              <button type="button" onClick={() => { setShowInstructions(false); setStep(2); }} className="mt-5 w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white">I Understand — Continue Registration</button>
+            </div>
+          </div>
+        )}
+
+        {mode === "other" ? (step === 1 ? (
+          <form onSubmit={otherCredentialsForm.handleSubmit(onOtherCredentialsSubmit)} className="px-6 py-5 space-y-4">
+            <div><label className="block text-xs font-medium text-slate-700 mb-1">Mobile number</label><input inputMode="numeric" maxLength={10} {...otherCredentialsForm.register("mobileNumber")} className={inputClass(!!otherCredentialsForm.formState.errors.mobileNumber)} placeholder="10-digit mobile number" /></div>
+            <p className="text-xs text-slate-500">If this mobile number is not registered, the registration form will appear.</p>
+            <button type="submit" disabled={authLoading} className="w-full px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-md">Continue</button>
+          </form>
+        ) : (
+          <form onSubmit={otherProfileForm.handleSubmit(onOtherProfileSubmit)} className="px-6 py-5 space-y-4">
+            {([['name','Name of first team member','text'],['teamMemberTwoName','Name of second team member','text'],['dateOfBirth','DOB of first team member','date'],['teamMemberTwoDob','DOB of second team member','date'],['mobileNumber','Mobile number','tel'],['email','Email Id','email'],['postalPincode','Postal Pincode','text']] as const).map(([field,label,type]) => <div key={field}><label className="block text-xs font-medium text-slate-700 mb-1">{label} <span className="text-red-500">*</span></label><input required type={type} readOnly={field === 'mobileNumber'} {...otherProfileForm.register(field)} className={inputClass(!!otherProfileForm.formState.errors[field])} />{otherProfileForm.formState.errors[field] && <p className="mt-1 text-xs text-red-600">{otherProfileForm.formState.errors[field]?.message}</p>}</div>)}
+            <button type="submit" disabled={authLoading} className="w-full px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-md">{authLoading ? "Registering..." : "Register & continue"}</button>
+          </form>
+        )) : step === 1 ? (
           <form
             onSubmit={credentialsForm.handleSubmit(onCredentialsSubmit)}
             className="px-6 py-5 space-y-4"

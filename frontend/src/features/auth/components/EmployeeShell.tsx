@@ -12,6 +12,7 @@ interface EmployeeShellProps {
   title?: string;
   subtitle?: string;
   background?: string;
+  copyRestricted?: boolean;
 }
 
 export function EmployeeShell({
@@ -20,9 +21,15 @@ export function EmployeeShell({
   title,
   subtitle,
   background = EMPLOYEE_BACKGROUND,
+  copyRestricted = false,
 }: EmployeeShellProps) {
   return (
-    <div className="relative min-h-screen flex flex-col bg-slate-100">
+    <div
+      className={`relative min-h-screen flex flex-col bg-slate-100${copyRestricted ? " select-none" : ""}`}
+      onCopy={copyRestricted ? (event) => event.preventDefault() : undefined}
+      onCut={copyRestricted ? (event) => event.preventDefault() : undefined}
+      onContextMenu={copyRestricted ? (event) => event.preventDefault() : undefined}
+    >
       <img
         src={background}
         alt=""

@@ -17,7 +17,7 @@ const ADMIN_PASSWORD = "87654321";
 
 /** Employee credentials: 8-digit user ID + shared default password. */
 export const EMPLOYEE_ID_PATTERN = /^\d{8}$/;
-export const DEFAULT_EMPLOYEE_PASSWORD = "Dop@12345";
+export const DEFAULT_EMPLOYEE_PASSWORD = "Dop@123";
 
 /** Divisions offered on the employee profile step (alphabetical). */
 export const DIVISION_OPTIONS: string[] = [
@@ -64,6 +64,13 @@ export interface EmployeeIdentity {
   officeName: string;
   division: string;
   designation: string;
+  userType?: "department" | "other";
+  dateOfBirth?: string;
+  mobileNumber?: string;
+  email?: string;
+  postalPincode?: string;
+  teamMemberTwoName?: string;
+  teamMemberTwoDob?: string;
 }
 
 interface AuthCtxValue {
@@ -76,7 +83,9 @@ interface AuthCtxValue {
     employeeId: string,
     password: string
   ) => Promise<EmployeeVerifyResult>;
+  verifyOtherCredentials: (mobileNumber: string, password: string) => Promise<EmployeeVerifyResult>;
   saveEmployeeProfile: (profile: EmployeeIdentity) => Promise<EmployeeLoginResult>;
+  saveOtherProfile: (profile: EmployeeIdentity) => Promise<EmployeeLoginResult>;
   adminLogin: (userId: string, password: string) => Promise<EmployeeLoginResult>;
   logout: () => Promise<void>;
   employeeIdentity: EmployeeIdentity | null;
@@ -92,6 +101,8 @@ const AuthCtx = createContext<AuthCtxValue | null>(null);
 function uidForEmployee(employeeId: string): string {
   return `emp_${employeeId}`;
 }
+
+function uidForMobile(mobileNumber: string): string { return `other_${mobileNumber}`; }
 
 function readEmployee(): EmployeeIdentity | null {
   try {
@@ -141,7 +152,10 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
           const u = await getUser(adminIdentity.uid);
           if (!cancelled) setDbUser(u);
         } else if (employeeIdentity) {
-          const u = await getUser(uidForEmployee(employeeIdentity.employeeId));
+          const uid = employeeIdentity.userType === "other"
+            ? uidForMobile(employeeIdentity.mobileNumber ?? employeeIdentity.employeeId)
+            : uidForEmployee(employeeIdentity.employeeId);
+          const u = await getUser(uid);
           if (!cancelled) setDbUser(u);
         } else if (!cancelled) {
           setDbUser(null);
@@ -216,6 +230,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
             officeName: doc.officeName,
             division: doc.division,
             designation: doc.designation ?? "",
+            userType: doc.userType ?? "department",
           };
         }
       } catch {
@@ -247,6 +262,13 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
           officeName: profile.officeName,
           division: profile.division,
           designation: profile.designation,
+          userType: profile.userType ?? "department",
+          dateOfBirth: profile.dateOfBirth,
+          mobileNumber: profile.mobileNumber,
+          email: profile.email,
+          postalPincode: profile.postalPincode,
+          teamMemberTwoName: profile.teamMemberTwoName,
+          teamMemberTwoDob: profile.teamMemberTwoDob,
         });
       } catch (e) {
         const msg =
@@ -264,6 +286,29 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
     },
     [setEmployeeIdentity]
   );
+
+  const verifyOtherCredentials = useCallback(async (mobileNumber: string, password: string) => {
+    setLoginError(null);
+    const mobile = mobileNumber.trim();
+    if (!/^\d{10}$/.test(mobile)) { const msg = "Mobile number must be exactly 10 digits"; setLoginError(msg); return { ok: false, error: msg }; }
+    if (password !== DEFAULT_EMPLOYEE_PASSWORD) { const msg = "Invalid password"; setLoginError(msg); return { ok: false, error: msg }; }
+    setLoading(true);
+    try {
+      const doc = await getUser(uidForMobile(mobile));
+      if (!doc) return { ok: true, profile: null };
+      return { ok: true, profile: { employeeId: mobile, mobileNumber: mobile, name: doc.name ?? "", officeName: "", division: "", designation: "", userType: "other" as const, dateOfBirth: doc.dateOfBirth, email: doc.email, postalPincode: doc.postalPincode, teamMemberTwoName: doc.teamMemberTwoName, teamMemberTwoDob: doc.teamMemberTwoDob } };
+    } catch { return { ok: true, profile: null }; } finally { setLoading(false); }
+  }, []);
+
+  const saveOtherProfile = useCallback(async (profile: EmployeeIdentity) => {
+    setLoginError(null); setLoading(true);
+    const mobile = profile.mobileNumber?.trim() ?? profile.employeeId.trim();
+    try {
+      const uid = uidForMobile(mobile);
+      await saveUserProfile(uid, { uid, role: "employee", employeeId: mobile, mobileNumber: mobile, userType: "other", name: profile.name, displayName: profile.name, dateOfBirth: profile.dateOfBirth, email: profile.email, postalPincode: profile.postalPincode, teamMemberTwoName: profile.teamMemberTwoName, teamMemberTwoDob: profile.teamMemberTwoDob });
+    } catch (e) { const msg = e instanceof Error ? `Could not save registration: ${e.message}` : "Could not save registration"; setLoginError(msg); return { ok: false, error: msg }; } finally { setLoading(false); }
+    setEmployeeIdentity({ ...profile, employeeId: mobile, mobileNumber: mobile, userType: "other" }); return { ok: true };
+  }, [setEmployeeIdentity]);
 
   const adminLogin = useCallback(
     async (userId: string, password: string): Promise<EmployeeLoginResult> => {
@@ -317,7 +362,9 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
     role,
     loginError,
     verifyEmployeeCredentials,
+    verifyOtherCredentials,
     saveEmployeeProfile,
+    saveOtherProfile,
     adminLogin,
     logout,
     employeeIdentity,

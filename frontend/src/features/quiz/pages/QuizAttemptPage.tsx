@@ -9,6 +9,7 @@ import {
   listQuestions,
   startAttempt,
   updateAttempt,
+  abandonAttempt,
   findCompletedAttempt,
   getResultByAttempt,
   evaluateAttemptClient,
@@ -83,6 +84,18 @@ export function QuizAttemptPage() {
   const saveDebounceRef = useRef<number | null>(null);
   const lastSavedAnswersRef = useRef<AnswersMap>({});
   const submittingRef = useRef(false);
+  const abandonedRef = useRef(false);
+  const fullscreenEnteredRef = useRef(false);
+  const abandonKey = `quiz-active:${quizId}`;
+
+  const abandonAndReturn = useCallback(async () => {
+    if (!attempt?.id || submittingRef.current || abandonedRef.current) return;
+    abandonedRef.current = true;
+    sessionStorage.removeItem(abandonKey);
+    await abandonAttempt(attempt.id, dbUser?.employeeId ?? employeeIdentity?.employeeId ?? "", quizId).catch(() => undefined);
+    if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
+    navigate("/employee/home", { replace: true });
+  }, [attempt, abandonKey, dbUser?.employeeId, employeeIdentity?.employeeId, quizId, navigate]);
 
   const questionIdToQuestion = useMemo(() => {
     const m = new Map<string, Question>();
@@ -131,6 +144,7 @@ export function QuizAttemptPage() {
   const doSubmit = useCallback(async () => {
     if (!attempt || !attempt.id || submittingRef.current) return;
     submittingRef.current = true;
+    sessionStorage.removeItem(abandonKey);
     setSubmitting(true);
 
     try {
@@ -165,7 +179,34 @@ export function QuizAttemptPage() {
       setSubmitting(false);
       setInitError(e instanceof Error ? e.message : "Failed to submit quiz");
     }
-  }, [attempt, activeQuestionIds, answers, navigate, quizId]);
+  }, [attempt, activeQuestionIds, answers, navigate, quizId, abandonKey]);
+
+  useEffect(() => {
+    sessionStorage.removeItem(abandonKey);
+    sessionStorage.setItem(abandonKey, "1");
+    const onBeforeUnload = () => { if (attempt?.id) void abandonAttempt(attempt.id, dbUser?.employeeId ?? employeeIdentity?.employeeId ?? "", quizId); };
+    const onPopState = () => { void abandonAndReturn(); };
+    const onFullscreenChange = () => {
+      if (document.fullscreenElement) fullscreenEnteredRef.current = true;
+      else if (fullscreenEnteredRef.current && attempt && !submittingRef.current) void abandonAndReturn();
+    };
+    const onVisibilityChange = () => {
+      const fullscreenSupported = Boolean(document.fullscreenEnabled && document.documentElement.requestFullscreen);
+      if (fullscreenSupported && fullscreenEnteredRef.current && document.hidden && attempt && !submittingRef.current) void abandonAndReturn();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("popstate", onPopState);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    const fullscreenRequest = document.documentElement.requestFullscreen?.();
+    fullscreenRequest?.catch(() => undefined);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("popstate", onPopState);
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [abandonKey, abandonAndReturn, attempt, dbUser?.employeeId, employeeIdentity?.employeeId, quizId, navigate]);
 
   const timer = useCountdownTimer({
     initialSeconds,
@@ -180,7 +221,7 @@ export function QuizAttemptPage() {
 
     let cancelled = false;
 
-    const empUid = `emp_${employeeIdentity.employeeId}`;
+    const empUid = dbUser.uid;
 
     const init = async () => {
       try {
@@ -363,7 +404,7 @@ export function QuizAttemptPage() {
   const totalActive = activeQuestionIds.length;
 
   return (
-    <EmployeeShell>
+    <EmployeeShell copyRestricted>
       <QuizTimerBar
         quizTitle={quiz.name}
         formatted={timer.formatted}

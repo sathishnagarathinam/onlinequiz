@@ -48,7 +48,7 @@ interface AttemptSummary {
 
 export function EmployeeHomePage() {
   const { allowed, dbUser } = useRequireRole("employee");
-  const { logout } = useAuthCtx();
+  const { logout, employeeIdentity } = useAuthCtx();
   const navigate = useNavigate();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set());
@@ -84,7 +84,8 @@ export function EmployeeHomePage() {
           {
             includeUpcoming: true,
             alwaysIncludeQuizIds: [...submitted],
-          }
+          },
+          dbUser.userType ?? "department"
         );
         if (cancelled) return;
 
@@ -137,8 +138,11 @@ export function EmployeeHomePage() {
   if (!allowed) return null;
 
   const handleLogout = async () => {
+    const loginPath = employeeIdentity?.userType === "other"
+      ? "/employee/login?type=other"
+      : "/employee/login?type=department";
     await logout();
-    navigate("/employee/login", { replace: true });
+    navigate(loginPath, { replace: true });
   };
 
   return (
