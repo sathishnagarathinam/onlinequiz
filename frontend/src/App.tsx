@@ -14,6 +14,7 @@ import QuizFormPage from "./features/admin/pages/QuizFormPage";
 import QuestionBankPage from "./features/admin/pages/QuestionBankPage";
 import QuestionUploadPage from "./features/admin/pages/QuestionUploadPage";
 import EmployeeMasterPage from "./features/admin/pages/EmployeeMasterPage";
+import OutsiderMasterPage from "./features/admin/pages/OutsiderMasterPage";
 import ResultListPage from "./features/admin/pages/ResultListPage";
 import ResultReviewPage from "./features/admin/pages/ResultReviewPage";
 import LeaderboardPage from "./features/admin/pages/LeaderboardPage";
@@ -303,6 +304,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="admin">
             <EmployeeMasterPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/outsiders"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <OutsiderMasterPage />
           </ProtectedRoute>
         }
       />

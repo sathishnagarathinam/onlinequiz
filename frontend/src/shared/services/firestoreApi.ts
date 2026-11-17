@@ -88,6 +88,10 @@ export async function updateUser(uid: string, patch: Partial<FirestoreUser>): Pr
   await updateDoc(doc(db, COL.USERS, uid), withTimestamps(patch, false));
 }
 
+export async function deleteUser(uid: string): Promise<void> {
+  await deleteDoc(doc(db, COL.USERS, uid));
+}
+
 /** Create or merge a user document without clobbering existing fields. */
 export async function saveUserProfile(
   uid: string,

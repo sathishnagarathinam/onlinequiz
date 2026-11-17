@@ -8,6 +8,7 @@ const navItems: Array<{ label: string; to: string }> = [
   { label: "Dashboard", to: "/admin/dashboard" },
   { label: "Quizzes", to: "/admin/quizzes" },
   { label: "Employee Master", to: "/admin/employees" },
+  { label: "Outsider Master", to: "/admin/outsiders" },
   { label: "Results", to: "/admin/results" },
   { label: "Leaderboard", to: "/admin/leaderboard" },
   { label: "Audit Log", to: "/admin/audit" },
