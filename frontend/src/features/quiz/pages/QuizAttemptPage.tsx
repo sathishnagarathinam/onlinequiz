@@ -67,7 +67,7 @@ export function QuizAttemptPage() {
   const { quizId = "" } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
   const { allowed, loading: authLoading, dbUser } = useRequireRole("employee");
-  const { employeeIdentity } = useAuthCtx();
+  const { employeeIdentity, logout } = useAuthCtx();
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [attempt, setAttempt] = useState<Attempt | null>(null);
@@ -86,16 +86,25 @@ export function QuizAttemptPage() {
   const submittingRef = useRef(false);
   const abandonedRef = useRef(false);
   const fullscreenEnteredRef = useRef(false);
+  const initialSessionCheckRef = useRef(false);
   const abandonKey = `quiz-active:${quizId}`;
+  const attemptKey = `quiz-attempt:${quizId}`;
+
+  const returnToLogin = useCallback(async () => {
+    const loginPath = employeeIdentity?.userType === "other" ? "/employee/login?type=other" : "/employee/login?type=department";
+    await logout();
+    navigate(loginPath, { replace: true });
+  }, [employeeIdentity?.userType, logout, navigate]);
 
   const abandonAndReturn = useCallback(async () => {
     if (!attempt?.id || submittingRef.current || abandonedRef.current) return;
     abandonedRef.current = true;
     sessionStorage.removeItem(abandonKey);
+    sessionStorage.removeItem(attemptKey);
     await abandonAttempt(attempt.id, dbUser?.employeeId ?? employeeIdentity?.employeeId ?? "", quizId).catch(() => undefined);
     if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
-    navigate("/employee/home", { replace: true });
-  }, [attempt, abandonKey, dbUser?.employeeId, employeeIdentity?.employeeId, quizId, navigate]);
+    await returnToLogin();
+  }, [attempt, abandonKey, attemptKey, dbUser?.employeeId, employeeIdentity?.employeeId, quizId, returnToLogin]);
 
   const questionIdToQuestion = useMemo(() => {
     const m = new Map<string, Question>();
@@ -145,6 +154,7 @@ export function QuizAttemptPage() {
     if (!attempt || !attempt.id || submittingRef.current) return;
     submittingRef.current = true;
     sessionStorage.removeItem(abandonKey);
+    sessionStorage.removeItem(attemptKey);
     setSubmitting(true);
 
     try {
@@ -179,12 +189,29 @@ export function QuizAttemptPage() {
       setSubmitting(false);
       setInitError(e instanceof Error ? e.message : "Failed to submit quiz");
     }
-  }, [attempt, activeQuestionIds, answers, navigate, quizId, abandonKey]);
+  }, [attempt, activeQuestionIds, answers, navigate, quizId, abandonKey, attemptKey]);
 
   useEffect(() => {
+    if (initialSessionCheckRef.current) return;
+    initialSessionCheckRef.current = true;
+    const previousAttempt = sessionStorage.getItem(attemptKey);
+    if (sessionStorage.getItem(abandonKey) && previousAttempt) {
+      let previous: { id?: string; employeeId?: string } = {};
+      try { previous = JSON.parse(previousAttempt) as { id?: string; employeeId?: string }; } catch { /* ignore malformed session data */ }
+      sessionStorage.removeItem(abandonKey);
+      sessionStorage.removeItem(attemptKey);
+      if (previous.id) void abandonAttempt(previous.id, previous.employeeId ?? dbUser?.employeeId ?? employeeIdentity?.employeeId ?? "", quizId);
+      void returnToLogin();
+      return;
+    }
     sessionStorage.removeItem(abandonKey);
     sessionStorage.setItem(abandonKey, "1");
-    const onBeforeUnload = () => { if (attempt?.id) void abandonAttempt(attempt.id, dbUser?.employeeId ?? employeeIdentity?.employeeId ?? "", quizId); };
+    const onBeforeUnload = () => {
+      if (attempt?.id) {
+        sessionStorage.setItem(attemptKey, JSON.stringify({ id: attempt.id, employeeId: dbUser?.employeeId ?? employeeIdentity?.employeeId ?? "" }));
+        void abandonAttempt(attempt.id, dbUser?.employeeId ?? employeeIdentity?.employeeId ?? "", quizId);
+      }
+    };
     const onPopState = () => { void abandonAndReturn(); };
     const onFullscreenChange = () => {
       if (document.fullscreenElement) fullscreenEnteredRef.current = true;
@@ -206,7 +233,7 @@ export function QuizAttemptPage() {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [abandonKey, abandonAndReturn, attempt, dbUser?.employeeId, employeeIdentity?.employeeId, quizId, navigate]);
+  }, [abandonKey, attemptKey, abandonAndReturn, attempt, dbUser?.employeeId, employeeIdentity?.employeeId, quizId, navigate, returnToLogin]);
 
   const timer = useCountdownTimer({
     initialSeconds,
@@ -278,6 +305,7 @@ export function QuizAttemptPage() {
         if (cancelled) return;
 
         setAttempt(currentAttempt);
+        sessionStorage.setItem(attemptKey, JSON.stringify({ id: currentAttempt.id, employeeId: dbUser.employeeId }));
         setQuestionOrder(currentAttempt.questionIds ?? []);
         setCurrentIndex(0);
 

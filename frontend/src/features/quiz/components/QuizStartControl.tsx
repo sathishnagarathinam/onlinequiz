@@ -164,6 +164,7 @@ export function QuizStartControl({
 
   const beginQuiz = () => {
         sessionStorage.removeItem(`quiz-active:${quizId}`);
+        sessionStorage.removeItem(`quiz-attempt:${quizId}`);
         const fullscreenRequest = document.documentElement.requestFullscreen?.();
         fullscreenRequest?.catch(() => undefined);
         navigate(`/employee/quiz/${quizId}`);
